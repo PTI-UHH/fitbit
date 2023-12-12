@@ -1,15 +1,16 @@
-import json
 import os
 import re
+import sys
 from datetime import datetime
 from typing import Any, Union
 
 import pandas as pd
 from pandas import Timestamp
 
-from consts import DIRECTORIES, ROOT, OUTPUT_FILE
-from utils import CustomJsonEncoder
+from consts import DIRECTORIES
+from logger import get_logger
 
+logger = get_logger(__name__)
 files_processed = {}
 
 
@@ -47,14 +48,18 @@ def parse_timestamp(timestamp: Union[str, Timestamp], timestamp_type: str) -> st
 
 
 def process_files_in_directory(
-        directory_config: dict[str, Any]
+        root_path: str, directory_config: dict[str, Any]
 ) -> list[dict[str, Any]]:
     directory_name = directory_config["name"]
     files_to_read = directory_config["files"]
     ignore_prefix = directory_config.get("ignore_prefix") or []
     events_data = []
 
-    for root, dirs, files in os.walk(ROOT + directory_name):
+    if not os.path.isdir(root_path):
+        logger.exception(f"path '{root_path}' does not exist.")
+        sys.exit(1)
+
+    for root, dirs, files in os.walk(os.path.join(root_path, directory_name)):
         for filename in files:
             # Track read files
             if filename.endswith(("csv", "json")):
@@ -78,7 +83,7 @@ def process_files_in_directory(
                         f".{file_extension}"
                 ):
                     file_path = os.path.join(root, filename)
-                    print(f"Processing {file_path}...")
+                    logger.info(f"Processing {file_path} ...")
                     files_processed[os.path.join(directory_name, filename)] = "READ"
 
                     if file_extension == "csv":
@@ -119,10 +124,10 @@ def process_files_in_directory(
     return [event for event_list in events_data for event in event_list]
 
 
-def main():
+def run_process_export(root_path: str) -> dict[str, list[dict[str, Any]]]:
     all_events_data = []
     for directory_config in DIRECTORIES:
-        events_data = process_files_in_directory(directory_config)
+        events_data = process_files_in_directory(root_path, directory_config)
         all_events_data.extend(events_data)
 
     events_by_timestamp = {}
@@ -133,22 +138,18 @@ def main():
         else:
             events_by_timestamp[event["__timestamp"]] = [event_without_timestamp]
 
-    with open(OUTPUT_FILE, "w") as json_file:
-        json.dump(events_by_timestamp, json_file, indent=2, cls=CustomJsonEncoder)
-
-
-if __name__ == "__main__":
-    main()
-
-    print("-----")
+    # Logging
+    logger.info("")
     for f, message in files_processed.items():
         if message == "IGNORE":
-            print(f"Ignored {f}.")
+            logger.info(f"Ignored {f}.")
 
-    print("-----")
+    logger.info("")
     for f, message in files_processed.items():
         if message == "MUST READ":
-            print(f"Warning: Did not read {f}. Add configuration to consts.py > DIRECTORIES.")
+            logger.warning(f"Warning: Did not read {f}. Add configuration to consts.py > DIRECTORIES.")
 
-    print("-----")
-    print("Done!")
+    logger.info("")
+    logger.info("Done!")
+
+    return events_by_timestamp

@@ -3,4 +3,6 @@ venv/
 .DS_Store
 __pycache__/
 Takeout*/
-events.json
+*.log
+.env
+!.env.template

@@ -1,1 +1,5 @@
 pandas
+mariadb
+mysql
+mysql-connector-python
+python-dotenv

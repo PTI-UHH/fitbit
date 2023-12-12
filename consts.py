@@ -1,5 +1,3 @@
-ROOT = "./Takeout/Fitbit/"
-OUTPUT_FILE = "events.json"
 DIRECTORIES = [
     {
         "name": "Account Changes",
