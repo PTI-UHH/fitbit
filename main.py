@@ -8,7 +8,10 @@ from urllib.parse import urlparse
 import mysql.connector
 from dotenv import load_dotenv
 
+from logger import get_logger
 from process_export import run_process_export
+
+logger = get_logger(__name__)
 
 
 class Database:
@@ -45,7 +48,7 @@ class Database:
             self.connection.commit()
             return res
         except Exception as e:
-            print(f"Error: {e}")
+            logger.exception(str(e))
             self.connection.rollback()
         finally:
             self.disconnect()
@@ -57,7 +60,7 @@ class Database:
             rows = self.cursor.fetchall()
             return rows
         except Exception as e:
-            print(f"Error: {e}")
+            logger.exception(str(e))
             self.connection.rollback()
         finally:
             self.disconnect()
@@ -68,12 +71,12 @@ if __name__ == '__main__':
     _, user_id, fitbit_path = sys.argv
     processed_data = run_process_export(fitbit_path)
 
-    rows = []
+    insert_rows = []
     for timestamp, data in processed_data.items():
-        rows.append([user_id, json.dumps(data), timestamp])
+        insert_rows.append([user_id, json.dumps(data), timestamp])
 
     db.insert(
         table_name="FitbitData",
         columns=["userId", "data", "timestamp"],
-        rows=rows
+        rows=insert_rows
     )
